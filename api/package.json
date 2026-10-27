@@ -1,0 +1,44 @@
+{
+  "name": "@S0AndS0/bluestaq-rest-service",
+  "version": "0.0.1",
+  "description": "Web extension",
+  "keywords": [
+    "job"
+  ],
+  "homepage": "https://github.com/S0AndS0/bluestaq-rest-service#readme",
+  "bugs": {
+    "url": "https://github.com/S0AndS0/bluestaq-rest-service/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/S0AndS0/bluestaq-rest-service.git"
+  },
+  "license": "ALL-RIGHTS-RESERVED",
+  "author": "S0AndS0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "check": "tsc --project tsconfig.json --noEmit",
+    "start-dev": "node --env-file=.env.development dist/server.js",
+    "dev": "nodemon --watch .env.development --watch 'src/**/*.ts' --exec node --env-file=.env.development -r ts-node/register src/server.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "1.4.10",
+    "@types/express": "5.0.5",
+    "@types/nodemon": "1.19.6",
+    "@types/jsonwebtoken": "9.0.10",
+    "nodemon": "3.1.10",
+    "ts-node": "10.9.2",
+    "tsup": "8.5.1",
+    "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "express": "5.1.0",
+    "cookie-parser": "1.4.7",
+    "express-rate-limit": "8.7.1",
+    "jsonwebtoken": "9.0.2",
+    "pg-promise": "12.2.0"
+  }
+}
