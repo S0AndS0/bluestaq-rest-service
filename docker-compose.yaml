@@ -1,0 +1,163 @@
+# yamllint disable rule:line-length
+
+##
+# Attributions
+#
+# - https://dev.to/moofoo/typescript-monorepo-development-using-docker-compose-watch-turborepo-and-pnpm-3hep
+# - https://docs.docker.com/compose/compose-file/05-services/#working_dir
+# - https://github.com/nodejs/docker-node
+# - https://stackoverflow.com/questions/36884991/how-to-rebuild-docker-container-in-docker-compose-yml
+#
+# $ docker run -it --rm --name my-running-script -v "$PWD":/usr/src/app -w /usr/src/app node:24 node your-daemon-or-script.js
+
+# version: '2'
+
+services:
+  api:
+    container_name: service-api
+
+    image: node:26-alpine
+    command: [
+      'npm', 'run', 'tsup-build:all',
+      '&&', 'npm', 'run', 'start-dev'
+    ]
+
+    ## TODO: figure out permissions
+    # user: node
+    working_dir: /home/node/api
+    volumes:
+      - ./docker-volumes/uploads:/srv/uploads
+      - ./api:/home/node/api
+
+    depends_on:
+      - postgres
+
+    hostname: host-api
+    networks:
+      - net-api
+      - net-bluestaq-rest-service
+
+    develop:
+      watch:
+        - action: sync
+          path: ./api
+          target: /home/node/api
+          initial_sync: true
+
+  nginx:
+    container_name: service-nginx
+
+    image: nginx:stable-alpine
+    entrypoint: ['/sbin/nginx-entrypoint.sh']
+
+    depends_on:
+      - api
+
+    hostname: host-nginx
+    networks:
+      - net-nginx
+      - net-bluestaq-rest-service
+
+    ## https://stackoverflow.com/questions/54349015/docker-compose-with-two-containers-web-can-not-connect-to-db/55108054#55108054
+    links:
+      - 'api:api'
+
+    env_file:
+      - path: ./.env/nginx.env
+        required: true
+
+    ##
+    # TODO: maybe get precise about what gets mounted and where
+    #
+    # https://stackoverflow.com/questions/42248198/how-to-mount-a-single-file-in-a-volume
+    volumes:
+      - ./docker-volumes/uploads:/srv/uploads
+      - ./docker-volumes/nginx/conf.d:/etc/nginx/conf.d
+      - ./docker-volumes/nginx/sbin:/sbin
+      # - ./docker-volumes/nginx/includes:/etc/nginx/includes
+      # - ./docker-volumes/nginx/logs:/var/logs/nginx
+      # - ./docker-volumes/nginx/run:/var/run
+
+    # ports:
+    #   - 80:8080
+    #   - 443:8080
+    # expose:
+    #   - '80'
+    #   - '443'
+    ## TODO: swap above for below after fighting NixOS and Docker permissions
+    ports:
+      - 8080:8080
+      - 8443:8443
+    expose:
+      - '8080'
+      - '8443'
+
+  postgres:
+    image: postgres:14.19-alpine3.21
+
+    hostname: host-postgres
+    networks:
+      - net-postgres
+      - net-bluestaq-rest-service
+
+    ## https://hub.docker.com/_/postgres/#docker-secrets
+    ## TODO: replace below with
+    ##       https://hub.docker.com/_/postgres/#docker-secrets
+    # env_file:
+    #   - path: ./.env/postgres.development
+    #     required: true
+
+    ##
+    # WARNING: Initialization scripts will **not** run if data already exists
+    # utilize the following command to explicitly re-run SQL scripts
+    #
+    # ```bash
+    # docker exec --env-file .env/postgres.development \
+    #    web-service-postgres-1 psql -U postgres \
+    #    -a -f /docker-entrypoint-initdb.d/000-init.sql
+    # ```
+    #
+    # WARNING: ./docker-volumes/postgresql/data should NOT be tracked by Git,
+    # but very much should be backed-up regularly.
+    #
+    # To enter an interactive session try;
+    #
+    # ```bash
+    # docker exec -it --env-file .env/postgres.development web-service-postgres-1 psql -U postgres
+    # ```
+    #
+    # ```sql
+    # \c user_accounts
+    #
+    # SELECT * FROM account_data;
+    # ```
+    volumes:
+      - ./docker-volumes/postgresql-development/data:/var/lib/postgresql
+      - ./docker-volumes/postgresql/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+
+networks:
+  net-api:
+    name: net-api
+    driver: bridge
+
+  net-nginx:
+    name: net-nginx
+    driver: bridge
+
+  net-postgres:
+    name: net-postgres
+    driver: bridge
+
+  net-bluestaq-rest-service:
+    name: net-bluestaq-rest-service
+    driver: bridge
+    ipam:
+      config:
+        ## WARN: first two/three portions of IP addresses may need changed to avoid conflicts
+        - subnet: 172.167.0.0/16
+          ip_range: 172.167.0.0/24
+          gateway: 172.167.0.1
+          aux_addresses:
+            host-api: 172.167.0.2
+            host-nginx: 172.167.0.3
+            host-postgres: 172.167.0.4
