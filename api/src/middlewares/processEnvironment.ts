@@ -15,6 +15,9 @@ const envKeys = [
 	'UPLOAD_ROOT',
 	'JWT_KEY_COOKIE',
 	'JWT_SALT_COOKIE',
+	'NODEMAILER_AUTH_USER',
+	'NODEMAILER_AUTH_PASS',
+	'NODEMAILER_HOST',
 ] as const;
 
 export type ProcessEnvironment = {
